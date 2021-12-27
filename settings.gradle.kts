@@ -1,3 +1,2 @@
 
-rootProject.name = "grader"
-
+rootProject.name = "html-grader"

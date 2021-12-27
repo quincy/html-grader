@@ -1,0 +1,7 @@
+POST http://localhost:8080/grade
+Content-Type: application/json
+Accept: application/json
+
+{
+  "uri":  "http://foobar.com"
+}

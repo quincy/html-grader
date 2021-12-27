@@ -1,11 +1,16 @@
 import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpack
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
+val serializationVersion = "1.1.0"
+val ktorVersion = "1.5.3"
+
 plugins {
     kotlin("multiplatform") version "1.4.32"
-    application
+    kotlin("plugin.serialization") version "1.4.32"
 
     id("com.diffplug.spotless") version "5.11.1"
+
+    application
 }
 
 repositories {
@@ -44,7 +49,13 @@ kotlin {
         }
     }
     sourceSets {
-        val commonMain by getting
+        val commonMain by getting {
+            dependencies {
+                implementation(kotlin("stdlib-common"))
+                implementation("org.jetbrains.kotlinx:kotlinx-serialization-core:$serializationVersion")
+                implementation("io.ktor:ktor-client-core:$ktorVersion")
+            }
+        }
         val commonTest by getting {
             dependencies {
                 implementation(kotlin("test-common"))
@@ -56,6 +67,13 @@ kotlin {
                 implementation("io.ktor:ktor-server-netty:1.4.0")
                 implementation("io.ktor:ktor-html-builder:1.4.0")
                 implementation("org.jetbrains.kotlinx:kotlinx-html-jvm:0.7.2")
+                implementation("io.ktor:ktor-serialization:$ktorVersion")
+                implementation("io.ktor:ktor-server-core:$ktorVersion")
+                implementation("io.ktor:ktor-server-netty:$ktorVersion")
+                implementation("io.ktor:ktor-websockets:$ktorVersion")
+
+                implementation("io.github.microutils:kotlin-logging:2.0.6")
+                implementation("ch.qos.logback:logback-classic:1.2.3")
 
                 implementation("org.jsoup:jsoup:1.13.1")
             }
@@ -76,6 +94,14 @@ kotlin {
             dependencies {
                 implementation("org.jetbrains:kotlin-react:16.13.1-pre.113-kotlin-1.4.0")
                 implementation("org.jetbrains:kotlin-react-dom:16.13.1-pre.113-kotlin-1.4.0")
+
+                implementation("io.ktor:ktor-client-js:$ktorVersion") // include http&websockets
+
+                // ktor client js json
+                implementation("io.ktor:ktor-client-json-js:$ktorVersion")
+                implementation("io.ktor:ktor-client-serialization-js:$ktorVersion")
+                implementation(npm("react", "16.13.1"))
+                implementation(npm("react-dom", "16.13.1"))
             }
         }
         val jsTest by getting {
@@ -100,10 +126,19 @@ tasks.getByName<KotlinWebpack>("jsBrowserProductionWebpack") {
     outputFileName = "output.js"
 }
 
+tasks.getByName<KotlinWebpack>("jsBrowserDevelopmentWebpack") {
+    outputFileName = "output.js"
+}
+
 tasks.getByName<Jar>("jvmJar") {
-    dependsOn(tasks.getByName("jsBrowserProductionWebpack"))
-    val jsBrowserProductionWebpack = tasks.getByName<KotlinWebpack>("jsBrowserProductionWebpack")
-    from(File(jsBrowserProductionWebpack.destinationDirectory, jsBrowserProductionWebpack.outputFileName))
+    val taskName = if (project.hasProperty("isProduction")) {
+        "jsBrowserProductionWebpack"
+    } else {
+        "jsBrowserDevelopmentWebpack"
+    }
+    val webpackTask = tasks.getByName<KotlinWebpack>(taskName)
+    dependsOn(webpackTask) // make sure JS gets compiled first
+    from(File(webpackTask.destinationDirectory, webpackTask.outputFileName)) // bring output file along into the JAR
 }
 
 tasks.getByName<JavaExec>("run") {
@@ -125,9 +160,9 @@ configure<com.diffplug.gradle.spotless.SpotlessExtension> {
 
     kotlin {
         // by default the target is every '.kt' and '.kts` file in the java sourcesets
-        ktfmt()    // has its own section below
-        ktlint()   // has its own section below
-        diktat()   // has its own section below
+        ktfmt() // has its own section below
+        ktlint() // has its own section below
+        diktat() // has its own section below
         prettier() // has its own section below
         licenseHeader("/* (C)\$YEAR */") // or licenseHeaderFile
     }
